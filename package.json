@@ -1,0 +1,32 @@
+{
+  "name": "secure-blockchain",
+  "version": "1.0.0",
+  "description": "Secure blockchain transaction protocol with ECC-based cryptography",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.js",
+    "attack": "hardhat run scripts/simulateAttack.js"
+  },
+  "keywords": [
+    "blockchain",
+    "cryptography",
+    "ECC",
+    "security"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "elliptic": "^6.5.4",
+    "crypto-js": "^4.2.0",
+    "secp256k1": "^5.0.0"
+  }
+}
+
