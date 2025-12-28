@@ -3,57 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Blockchain Protocol</title>
+    <title>Secure Blockchain Protocol - MetaMask</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🔐 Secure Blockchain Protocol</h1>
-            <p class="subtitle">ECC-Based Cryptography | PoA + PoT Consensus</p>
+            <p class="subtitle">MetaMask Integration | ECC-Based Cryptography | Sepolia Testnet</p>
         </header>
 
         <div class="main-content">
-            <!-- Key Management Section -->
+            <!-- MetaMask Connection Section -->
             <section class="card">
-                <h2>🔑 Key Management</h2>
-                <div class="key-section">
-                    <div class="key-pair">
-                        <h3>Your Keys</h3>
-                        <button id="generateKeys" class="btn btn-primary">Generate New Key Pair</button>
-                        <div id="keyDisplay" class="key-display" style="display: none;">
-                            <div class="key-item">
-                                <label>Private Key:</label>
-                                <textarea id="privateKey" readonly></textarea>
-                                <button class="btn-copy" onclick="copyToClipboard('privateKey')" type="button">Copy</button>
-                            </div>
-                            <div class="key-item">
-                                <label>Public Key:</label>
-                                <textarea id="publicKey" readonly></textarea>
-                                <button class="btn-copy" onclick="copyToClipboard('publicKey')" type="button">Copy</button>
-                            </div>
-                        </div>
+                <h2>🦊 MetaMask Connection</h2>
+                <div id="metamaskStatus" class="metamask-status">
+                    <div class="status-item">
+                        <label>Status:</label>
+                        <span id="metamaskConnected" class="status-badge">Not Connected</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Account:</label>
+                        <span id="metamaskAccount" class="account-address">-</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Balance:</label>
+                        <span id="metamaskBalance">-</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Network:</label>
+                        <span id="metamaskNetwork" class="status-badge">-</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Chain ID:</label>
+                        <span id="metamaskChainId">-</span>
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="accountSelect">Switch Account:</label>
+                        <select id="accountSelect" class="form-group input" style="width: 100%; padding: 10px;">
+                            <option>No accounts available</option>
+                        </select>
                     </div>
                 </div>
+                <button id="connectMetaMaskBtn" class="btn btn-primary">Connect MetaMask</button>
+                <button id="refreshStatusBtn" class="btn btn-secondary">Refresh</button>
             </section>
 
-            <!-- Transaction Creation Section -->
+            <!-- Transaction Section -->
             <section class="card">
-                <h2>💸 Create Transaction</h2>
+                <h2>💸 Send Transaction</h2>
+                <p class="info-text">Send real ETH on Sepolia with encrypted protocol payload</p>
                 <form id="transactionForm">
                     <div class="form-group">
-                        <label for="receiverPublicKey">Receiver Public Key:</label>
-                        <textarea id="receiverPublicKey" placeholder="Enter receiver's public key (hex)" required></textarea>
+                        <label for="receiverAddress">Receiver Address (MetaMask):</label>
+                        <input type="text" id="receiverAddress" placeholder="0x..." required>
                     </div>
                     <div class="form-group">
-                        <label for="transactionAmount">Amount:</label>
-                        <input type="number" id="transactionAmount" placeholder="0" min="0" step="0.01" required>
+                        <label for="receiverPublicKey">Receiver Protocol Public Key (ECC):</label>
+                        <textarea id="receiverPublicKey" placeholder="Enter receiver's ECC public key for encryption (66 hex characters)" required></textarea>
+                        <small style="color: var(--text-secondary); display: block; margin-top: 5px;">
+                            Used for ECIES encryption of protocol payload. 
+                            <button type="button" id="generateReceiverKeyBtn" class="btn-copy" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Generate Test Key</button>
+                            <button type="button" id="showMyProtocolKeyBtn" class="btn-copy" style="margin-left: 5px; padding: 5px 10px; font-size: 12px;">Show My Protocol Key</button>
+                        </small>
+                        <div id="protocolKeyDisplay" style="margin-top: 10px; padding: 10px; background: var(--bg-input); border-radius: 6px; display: none;">
+                            <label style="font-size: 12px; color: var(--text-secondary);">Your Protocol Public Key:</label>
+                            <code id="myProtocolPublicKey" style="display: block; margin-top: 5px; word-break: break-all; color: var(--accent-primary);"></code>
+                            <small style="color: var(--text-secondary); font-size: 11px;">Share this key with others so they can send you encrypted transactions</small>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="transactionMessage">Message:</label>
+                        <label for="transactionAmount">Amount (ETH):</label>
+                        <input type="number" id="transactionAmount" placeholder="0.001" min="0" step="0.001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionMessage">Message (Optional):</label>
                         <textarea id="transactionMessage" placeholder="Optional message" rows="3"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-success" id="createTransactionBtn">Create & Sign Transaction</button>
+                    <button type="submit" class="btn btn-success">Send ETH Transaction</button>
                 </form>
             </section>
 
@@ -62,22 +89,14 @@
                 <h2>📋 Transaction Details</h2>
                 <div id="transactionDisplay" class="transaction-display" style="display: none;">
                     <div class="transaction-item">
-                        <label>Transaction ID:</label>
-                        <code id="txId"></code>
+                        <label>ETH Transaction Hash:</label>
+                        <code id="txHash"></code>
+                        <a id="txHashLink" href="#" target="_blank" style="color: var(--accent-primary); margin-left: 10px;">View on Etherscan</a>
                     </div>
                     <div class="transaction-item">
                         <label>Status:</label>
                         <span id="txStatus" class="status-badge"></span>
                     </div>
-                    <div class="transaction-item">
-                        <label>Encrypted Payload:</label>
-                        <textarea id="txEncrypted" readonly></textarea>
-                    </div>
-                    <div class="transaction-item">
-                        <label>Signature:</label>
-                        <textarea id="txSignature" readonly></textarea>
-                    </div>
-                    <button id="submitTransactionBtn" class="btn btn-primary" style="display: none;">Submit to Blockchain</button>
                 </div>
             </section>
 
@@ -98,13 +117,12 @@
                         <span id="validatorCount">-</span>
                     </div>
                 </div>
-                <button id="refreshStatusBtn" class="btn btn-secondary">Refresh Status</button>
             </section>
 
             <!-- Attack Simulation Section -->
             <section class="card">
                 <h2>🛡️ Attack Simulation</h2>
-                <p class="info-text">Test the security of the protocol by simulating attacks</p>
+                <p class="info-text">Test security after successful transaction</p>
                 <div class="attack-buttons">
                     <button id="simulateReplayBtn" class="btn btn-attack">Simulate Replay Attack</button>
                     <button id="simulateTamperBtn" class="btn btn-attack">Simulate Tampering</button>
@@ -116,7 +134,7 @@
 
             <!-- Transaction History Section -->
             <section class="card">
-                <h2>📜 Recent Transactions</h2>
+                <h2>📜 Transaction History</h2>
                 <div id="transactionHistory" class="transaction-history">
                     <p class="empty-state">No transactions yet</p>
                 </div>
@@ -124,20 +142,45 @@
         </div>
     </div>
 
-    <!-- Modal for displaying detailed information -->
-    <div id="infoModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <div id="modalBody"></div>
-        </div>
-    </div>
-
-    <!-- Using ethers v5 for CDN compatibility (v6 CDN may not be available) -->
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
-    
-    <!-- Elliptic.js with multiple CDN fallbacks -->
+    <!-- Scripts - Load libraries with fallback CDNs -->
     <script>
-        // Load elliptic.js with fallback CDNs
+        // Load ethers.js with multiple CDN fallbacks
+        function loadEthers() {
+            const cdns = [
+                'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
+                'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js',
+                'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js' // Original CDN as last fallback
+            ];
+            
+            let currentIndex = 0;
+            
+            function tryLoadCDN() {
+                if (currentIndex >= cdns.length) {
+                    console.error('❌ All ethers.js CDNs failed to load');
+                    alert('Error: Ethers.js library failed to load from all CDNs.\n\nPlease check your internet connection and refresh the page.');
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = cdns[currentIndex];
+                script.onerror = function() {
+                    console.warn(`⚠️ Failed to load ethers.js from ${cdns[currentIndex]}, trying next CDN...`);
+                    currentIndex++;
+                    tryLoadCDN();
+                };
+                script.onload = function() {
+                    console.log(`✅ Successfully loaded ethers.js from ${cdns[currentIndex]}`);
+                    // After ethers loads, load elliptic
+                    loadElliptic();
+                };
+                document.head.appendChild(script);
+            }
+            
+            tryLoadCDN();
+        }
+        
+        // Load Elliptic.js with multiple CDN fallbacks
         function loadElliptic() {
             const cdns = [
                 'https://unpkg.com/elliptic@6.5.4/dist/elliptic.min.js',
@@ -149,23 +192,20 @@
             
             function tryLoadCDN() {
                 if (currentIndex >= cdns.length) {
-                    console.error('All elliptic.js CDNs failed to load');
-                    alert('Error: Elliptic library failed to load from all CDNs.\n\nPlease check your internet connection or download elliptic.js locally.\n\nYou can download it from: https://github.com/indutny/elliptic');
+                    console.error('❌ All elliptic.js CDNs failed to load');
+                    alert('Error: Elliptic library failed to load from all CDNs.\n\nPlease check your internet connection.');
                     return;
                 }
                 
                 const script = document.createElement('script');
                 script.src = cdns[currentIndex];
                 script.onerror = function() {
-                    console.warn(`Failed to load elliptic.js from ${cdns[currentIndex]}, trying next CDN...`);
+                    console.warn(`⚠️ Failed to load elliptic.js from ${cdns[currentIndex]}, trying next CDN...`);
                     currentIndex++;
                     tryLoadCDN();
                 };
                 script.onload = function() {
-                    console.log(`Successfully loaded elliptic.js from ${cdns[currentIndex]}`);
-                    if (typeof elliptic !== 'undefined') {
-                        console.log('Elliptic library verified');
-                    }
+                    console.log(`✅ Successfully loaded elliptic.js from ${cdns[currentIndex]}`);
                 };
                 document.head.appendChild(script);
             }
@@ -173,56 +213,76 @@
             tryLoadCDN();
         }
         
-        loadElliptic();
+        // Start loading ethers.js first
+        loadEthers();
     </script>
     
     <!-- CryptoJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     
+    <!-- Wait for all libraries to load before initializing app -->
     <script>
-        // Wait for all libraries to load before initializing app
-        let librariesCheckInterval;
-        
+        // Check if all required libraries are loaded
         function checkLibrariesLoaded() {
-            const allLoaded = typeof elliptic !== 'undefined' && 
-                            typeof CryptoJS !== 'undefined' && 
-                            typeof ethers !== 'undefined';
+            const ethersLoaded = typeof ethers !== 'undefined';
+            const cryptoJSLoaded = typeof CryptoJS !== 'undefined';
+            const ellipticLoaded = typeof elliptic !== 'undefined';
             
-            if (allLoaded) {
-                clearInterval(librariesCheckInterval);
+            if (ethersLoaded && cryptoJSLoaded && ellipticLoaded) {
                 console.log('✅ All libraries loaded successfully');
-                console.log('  - Elliptic:', typeof elliptic !== 'undefined' ? '✓' : '✗');
-                console.log('  - CryptoJS:', typeof CryptoJS !== 'undefined' ? '✓' : '✗');
-                console.log('  - Ethers:', typeof ethers !== 'undefined' ? '✓' : '✗');
+                console.log('  - Ethers.js:', ethersLoaded ? '✓' : '✗');
+                console.log('  - CryptoJS:', cryptoJSLoaded ? '✓' : '✗');
+                console.log('  - Elliptic:', ellipticLoaded ? '✓' : '✗');
+                return true;
             } else {
-                console.log('⏳ Waiting for libraries to load...');
-                console.log('  - Elliptic:', typeof elliptic !== 'undefined' ? '✓' : '✗');
-                console.log('  - CryptoJS:', typeof CryptoJS !== 'undefined' ? '✓' : '✗');
-                console.log('  - Ethers:', typeof ethers !== 'undefined' ? '✓' : '✗');
+                // Only log warnings every 10 checks to reduce console spam
+                if (checkCount % 10 === 0) {
+                    if (!ethersLoaded) console.warn('⏳ Waiting for Ethers.js...');
+                    if (!cryptoJSLoaded) console.warn('⏳ Waiting for CryptoJS...');
+                    if (!ellipticLoaded) console.warn('⏳ Waiting for Elliptic...');
+                }
+                return false;
             }
         }
         
-        window.addEventListener('load', function() {
-            // Check immediately
-            checkLibrariesLoaded();
-            
-            // Check every 500ms for up to 10 seconds
-            let attempts = 0;
-            librariesCheckInterval = setInterval(function() {
-                attempts++;
-                checkLibrariesLoaded();
+        // Wait for libraries with extended timeout for slow connections
+        let checkCount = 0;
+        const maxChecks = 100; // 10 seconds max wait (100 * 100ms)
+        
+        const libraryCheck = setInterval(function() {
+            checkCount++;
+            if (checkLibrariesLoaded()) {
+                clearInterval(libraryCheck);
+                // All libraries loaded, now load app.js
+                const script = document.createElement('script');
+                script.src = 'app.js';
+                script.onerror = function() {
+                    console.error('❌ Failed to load app.js');
+                    alert('Failed to load application script. Please refresh the page.');
+                };
+                script.onload = function() {
+                    console.log('✅ app.js loaded successfully');
+                };
+                document.body.appendChild(script);
+            } else if (checkCount >= maxChecks) {
+                clearInterval(libraryCheck);
+                console.error('❌ Libraries failed to load after 10 seconds');
+                let missingLibs = [];
+                if (typeof ethers === 'undefined') missingLibs.push('Ethers.js');
+                if (typeof CryptoJS === 'undefined') missingLibs.push('CryptoJS');
+                if (typeof elliptic === 'undefined') missingLibs.push('Elliptic');
                 
-                if (attempts > 20) { // 10 seconds
-                    clearInterval(librariesCheckInterval);
-                    if (typeof elliptic === 'undefined') {
-                        console.error('❌ Elliptic library failed to load after 10 seconds');
-                        alert('Error: Elliptic library failed to load.\n\nPossible solutions:\n1. Check your internet connection\n2. Try refreshing the page\n3. Download elliptic.js locally\n\nSee console for details.');
-                    }
-                }
-            }, 500);
-        });
+                let errorMsg = 'Error: The following libraries failed to load:\n\n' + missingLibs.join('\n');
+                errorMsg += '\n\nPossible solutions:';
+                errorMsg += '\n1. Check your internet connection';
+                errorMsg += '\n2. Try refreshing the page (Ctrl+F5)';
+                errorMsg += '\n3. Check browser console for detailed errors';
+                errorMsg += '\n4. Disable browser extensions that might block CDNs';
+                errorMsg += '\n5. Try a different browser';
+                
+                alert(errorMsg);
+            }
+        }, 100);
     </script>
-    <script src="app.js"></script>
 </body>
 </html>
-

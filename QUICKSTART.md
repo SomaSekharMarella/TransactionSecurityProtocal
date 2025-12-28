@@ -1,156 +1,168 @@
 # 🚀 Quick Start Guide
 
-Get the secure blockchain protocol up and running in minutes!
+Get the secure blockchain protocol running with MetaMask in 5 minutes!
 
 ## Prerequisites
 
-- Node.js v16 or higher
-- npm or yarn
+- ✅ Node.js v16+
+- ✅ MetaMask browser extension
+- ✅ Alchemy account (free)
 
-## Step-by-Step Setup
-
-### 1. Install Dependencies
+## Step 1: Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Compile Smart Contracts
+## Step 2: Get Alchemy API Key
+
+1. Go to https://www.alchemy.com/
+2. Create free account
+3. Create new app → Select "Sepolia" network
+4. Copy API key
+
+## Step 3: Configure Environment
+
+Create `.env` file in project root:
+
+```env
+ALCHEMY_SEPOLIA_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+PRIVATE_KEY=your_deployer_private_key
+```
+
+## Step 4: Compile Contracts
 
 ```bash
 npm run compile
 ```
 
-### 3. Start Local Blockchain
-
-Open a terminal and run:
+## Step 5: Deploy to Sepolia
 
 ```bash
-npm run node
+npx hardhat run scripts/deploy.js --network sepolia
 ```
 
-This starts a local Hardhat node with 10 test accounts pre-funded with 10,000 ETH each.
+**Copy the contract addresses** from output!
 
-**Keep this terminal open!**
+## Step 6: Update Frontend Config
 
-### 4. Deploy Contracts
-
-Open a **new terminal** and run:
-
-```bash
-npm run deploy
-```
-
-This will:
-- Deploy ValidatorRegistry contract
-- Deploy SecureLedger contract
-- Register 5 validators automatically
-
-**Copy the contract addresses** from the output - you'll need them for the frontend!
-
-### 5. Configure Frontend
-
-Edit `frontend/app.js` and update the `CONFIG` object:
+Edit `frontend/app.js`, update `CONFIG`:
 
 ```javascript
 const CONFIG = {
-    VALIDATOR_REGISTRY_ADDRESS: '0x...', // From deploy output
-    SECURE_LEDGER_ADDRESS: '0x...',      // From deploy output
-    RPC_URL: 'http://127.0.0.1:8545'
+    VALIDATOR_REGISTRY_ADDRESS: '0x...', // From deployment
+    SECURE_LEDGER_ADDRESS: '0x...',      // From deployment
+    ALCHEMY_RPC_URL: 'https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY'
 };
 ```
 
-### 6. Open Frontend
+## Step 7: Get Sepolia ETH
 
-**Option A: Direct File**
-- Open `frontend/index.html` in your browser
-- Note: Some browsers may block local file access for security
+Get testnet ETH from:
+- https://sepoliafaucet.com/
+- https://faucet.quicknode.com/ethereum/sepolia
+- https://www.alchemy.com/faucets/ethereum-sepolia
 
-**Option B: Local Server (Recommended)**
+## Step 8: Open Frontend
+
+**Option A: Local Server (Recommended)**
 ```bash
 cd frontend
 python -m http.server 8000
-# Or use Node.js:
-# npx http-server -p 8000
+# Or: npx http-server -p 8000
 ```
 
-Then open: `http://localhost:8000`
+Open: `http://localhost:8000`
 
-### 7. Test the System
+**Option B: Direct File**
+- Open `frontend/index.html` in browser
+- May have limitations with local files
 
-1. **Generate Key Pair**
-   - Click "Generate New Key Pair"
-   - Save your keys securely!
+## Step 9: Connect MetaMask
 
-2. **Create Transaction**
-   - Enter a receiver public key (generate another key pair for testing)
-   - Enter amount and message
-   - Click "Create & Sign Transaction"
+1. **Click "Connect MetaMask"**
+2. **Approve connection** in MetaMask popup
+3. **Switch to Sepolia** if prompted
+4. **Verify connection** - Account and balance should appear
 
-3. **Submit Transaction**
-   - Review the transaction details
-   - Click "Submit to Blockchain"
-   - Wait for confirmation
+## Step 10: Send First Transaction
 
-4. **Run Attack Simulations**
-   - Click any attack simulation button
-   - Verify that attacks are blocked ✅
+1. **Enter receiver address** - Another MetaMask address
+2. **Enter receiver protocol public key** - ECC public key (see note below)
+3. **Enter amount** - e.g., 0.001 ETH
+4. **Click "Send ETH Transaction"**
+5. **Approve in MetaMask** - Review and confirm
+6. **Wait for confirmation** - Check Etherscan link
 
-## Running Attack Simulations (CLI)
+### Getting Protocol Public Keys
 
-```bash
-npm run attack
-```
+For testing, you can:
+- Use the same address twice (sender = receiver)
+- Generate ECC keys using: `node -e "const EC = require('elliptic').ec; const ec = new EC('secp256k1'); const key = ec.genKeyPair(); console.log('Public:', key.getPublic(true, 'hex'));"`
 
-This simulates:
-- Replay attacks
-- Transaction tampering
-- Fake sender attacks
-- MITM attacks
+## Step 11: Test Attack Simulations
 
-All should be **blocked** by the system!
+After successful transaction:
+
+1. **Click any attack button** (Replay, Tamper, Fake Sender, MITM)
+2. **Verify attacks are blocked** ✅
+3. **Check console** for detailed results
 
 ## Troubleshooting
 
-### "Cannot connect to blockchain"
-- Make sure Hardhat node is running (`npm run node`)
-- Check RPC_URL in frontend config matches Hardhat node (default: `http://127.0.0.1:8545`)
+### "MetaMask not detected"
+- Install MetaMask extension
+- Refresh page
+- Check extension is enabled
 
-### "No accounts available"
-- Hardhat node should create 10 accounts automatically
-- Try restarting the Hardhat node
+### "Please switch to Sepolia"
+- Click MetaMask extension
+- Select "Sepolia" from network dropdown
+- Or click "Switch Network" in UI
+
+### "Insufficient balance"
+- Get Sepolia ETH from faucet
+- Wait for faucet transaction to confirm
+
+### "Transaction reverted"
+- Check contract addresses are correct
+- Verify you have Sepolia ETH
+- Check nonce is correct
 
 ### "Contract not found"
-- Make sure contracts are deployed (`npm run deploy`)
-- Update frontend config with correct addresses
+- Verify contracts are deployed
+- Check addresses in `frontend/app.js`
+- Ensure network is Sepolia
 
-### Frontend not loading
-- Use a local HTTP server (not file://)
-- Check browser console for errors
-- Ensure all CDN scripts are loading
+## What Happens Behind the Scenes
+
+1. **MetaMask** signs and sends ETH transaction
+2. **Protocol** encrypts payload using ECIES
+3. **Encrypted payload** attached to transaction data
+4. **Smart contract** validates nonce, timestamp, signature
+5. **Transaction** confirmed on Sepolia
+
+## Key Points
+
+✅ **Only MetaMask accounts** - No manual key generation  
+✅ **Real ETH transactions** - On Sepolia testnet  
+✅ **Encrypted payloads** - ECC-based encryption  
+✅ **Attack resistant** - Multiple security layers  
 
 ## Next Steps
 
-- Read the full [README.md](README.md) for detailed documentation
-- Explore the code in `crypto/` to understand the cryptography
-- Check `contracts/` for smart contract logic
-- Review `scripts/simulateAttack.js` to see attack patterns
-
-## Security Notes
-
-⚠️ **This is a demonstration system**
-- Not production-ready without security audits
-- Private keys are stored in browser memory (not secure for production)
-- Use hardware wallets in production
-- Implement proper key management
+- Read [README.md](README.md) for detailed documentation
+- Explore `crypto/` directory for cryptography details
+- Review `contracts/` for smart contract logic
+- Test all attack simulations
 
 ## Need Help?
 
-- Check the [README.md](README.md) for detailed documentation
-- Review code comments for implementation details
-- All cryptographic operations are in `crypto/` directory
+- Check browser console for errors
+- Verify MetaMask is on Sepolia
+- Ensure contracts are deployed
+- Check contract addresses in config
 
 ---
 
-**Happy Hacking! 🔐**
-
+**Ready to go! Connect MetaMask and start sending secure transactions! 🚀**

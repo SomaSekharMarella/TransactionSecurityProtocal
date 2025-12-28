@@ -436,6 +436,23 @@ header h1 {
     background: var(--accent-primary);
 }
 
+/* MetaMask Status */
+.metamask-status {
+    margin-bottom: 20px;
+}
+
+.account-address {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: var(--accent-primary);
+    word-break: break-all;
+    cursor: pointer;
+}
+
+.account-address:hover {
+    color: var(--accent-success);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .main-content {

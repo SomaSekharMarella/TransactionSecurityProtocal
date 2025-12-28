@@ -20,13 +20,13 @@
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.6.1",
     "hardhat": "^2.19.0"
   },
   "dependencies": {
-    "ethers": "^6.9.0",
-    "elliptic": "^6.5.4",
     "crypto-js": "^4.2.0",
+    "elliptic": "^6.5.4",
+    "ethers": "^6.9.0",
     "secp256k1": "^5.0.0"
   }
 }
-

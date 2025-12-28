@@ -41,7 +41,8 @@ contract SecureLedger {
     }
     
     mapping(bytes32 => Transaction) public transactions;
-    mapping(string => uint256) public nonceRegistry; // senderPublicKey => lastNonce
+    mapping(string => uint256) public nonceRegistry; // senderPublicKey => lastNonce (ECC-based)
+    mapping(address => uint256) public addressNonceRegistry; // senderAddress => lastNonce (Ethereum address-based)
     mapping(uint256 => Block) public blocks;
     mapping(bytes32 => bool) public processedTxIds; // Prevent duplicate processing
     
@@ -108,7 +109,11 @@ contract SecureLedger {
         uint256 _timestamp
     ) external {
         require(!processedTxIds[_txId], "Transaction already processed");
-        require(_nonce > nonceRegistry[_senderPublicKey], "Invalid nonce - must be greater than last");
+        
+        // Check nonce for both ECC public key AND Ethereum address (dual protection)
+        require(_nonce > nonceRegistry[_senderPublicKey], "Invalid nonce - ECC public key nonce must be greater");
+        require(_nonce > addressNonceRegistry[msg.sender], "Invalid nonce - Ethereum address nonce must be greater");
+        
         require(
             _timestamp >= block.timestamp - TIMESTAMP_TOLERANCE &&
             _timestamp <= block.timestamp + TIMESTAMP_TOLERANCE,
@@ -163,13 +168,23 @@ contract SecureLedger {
 
     /**
      * @dev Update nonce after successful transaction validation
+     * Updates both ECC public key nonce and Ethereum address nonce
      */
-    function updateNonce(string memory _senderPublicKey, uint256 _nonce) 
+    function updateNonce(string memory _senderPublicKey, address _senderAddress, uint256 _nonce) 
         external 
         onlyValidator 
     {
-        require(_nonce > nonceRegistry[_senderPublicKey], "Nonce must be greater");
+        require(_nonce > nonceRegistry[_senderPublicKey], "Nonce must be greater for ECC key");
+        require(_nonce > addressNonceRegistry[_senderAddress], "Nonce must be greater for address");
         nonceRegistry[_senderPublicKey] = _nonce;
+        addressNonceRegistry[_senderAddress] = _nonce;
+    }
+    
+    /**
+     * @dev Get last nonce for Ethereum address
+     */
+    function getLastAddressNonce(address _senderAddress) external view returns (uint256) {
+        return addressNonceRegistry[_senderAddress];
     }
 
     /**
@@ -261,16 +276,16 @@ contract SecureLedger {
             bool isValidated
         ) 
     {
-        Transaction memory tx = transactions[_txId];
+        Transaction memory transaction = transactions[_txId];
         return (
-            tx.txId,
-            tx.senderPublicKey,
-            tx.receiverPublicKey,
-            tx.encryptedPayload,
-            tx.signature,
-            tx.nonce,
-            tx.timestamp,
-            tx.isValidated
+            transaction.txId,
+            transaction.senderPublicKey,
+            transaction.receiverPublicKey,
+            transaction.encryptedPayload,
+            transaction.signature,
+            transaction.nonce,
+            transaction.timestamp,
+            transaction.isValidated
         );
     }
 

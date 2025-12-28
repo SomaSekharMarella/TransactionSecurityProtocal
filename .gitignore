@@ -3,6 +3,7 @@ artifacts/
 cache/
 coverage/
 .env
+.env.local
 *.log
 .DS_Store
 
