@@ -122,12 +122,20 @@
             <!-- Attack Simulation Section -->
             <section class="card">
                 <h2>🛡️ Attack Simulation</h2>
-                <p class="info-text">Test security after successful transaction</p>
-                <div class="attack-buttons">
-                    <button id="simulateReplayBtn" class="btn btn-attack">Simulate Replay Attack</button>
-                    <button id="simulateTamperBtn" class="btn btn-attack">Simulate Tampering</button>
-                    <button id="simulateFakeSenderBtn" class="btn btn-attack">Simulate Fake Sender</button>
-                    <button id="simulateMITMBtn" class="btn btn-attack">Simulate MITM</button>
+                <p class="info-text">Test all 11 attack vectors to verify protocol security</p>
+                <div class="button-group">
+                    <button id="simulateReplayBtn" class="btn btn-attack">1. Replay Attack</button>
+                    <button id="simulateMITMBtn" class="btn btn-attack">2. MITM Attack</button>
+                    <button id="simulatePrivilegedInsiderBtn" class="btn btn-attack">3. Privileged Insider</button>
+                    <button id="simulateImpersonationBtn" class="btn btn-attack">4. Impersonation</button>
+                    <button id="simulatePhysicalCaptureBtn" class="btn btn-attack">5. Physical Capture</button>
+                    <button id="simulateSessionKeyDisclosureBtn" class="btn btn-attack">6. Session Key Disclosure</button>
+                    <button id="simulateSybilBtn" class="btn btn-attack">7. Sybil Attack</button>
+                    <button id="simulateDoSBtn" class="btn btn-attack">8. DoS Attack</button>
+                    <button id="simulateEavesdroppingBtn" class="btn btn-attack">9. Eavesdropping</button>
+                    <button id="simulateDataIntegrityBtn" class="btn btn-attack">10. Data Integrity</button>
+                    <button id="simulateTrustManagementBtn" class="btn btn-attack">11. Trust Management</button>
+                    <button id="simulateAllBtn" class="btn btn-attack" style="background: #9b59b6; margin-top: 10px;">Run All Attacks</button>
                 </div>
                 <div id="attackResults" class="attack-results"></div>
             </section>
@@ -200,7 +208,10 @@
                 const script = document.createElement('script');
                 script.src = cdns[currentIndex];
                 script.onerror = function() {
-                    console.warn(`⚠️ Failed to load elliptic.js from ${cdns[currentIndex]}, trying next CDN...`);
+                    // Only log warning if not the last CDN (to reduce console spam)
+                    if (currentIndex < cdns.length - 1) {
+                        // Suppress warning - it's expected that some CDNs may fail
+                    }
                     currentIndex++;
                     tryLoadCDN();
                 };

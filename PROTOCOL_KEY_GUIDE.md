@@ -13,7 +13,7 @@ This is **NOT** an Ethereum address. It's an **ECC (Elliptic Curve Cryptography)
 
 ## How to Get a Protocol Public Key
 
-### Option 1: Use the UI Helper (Easiest)
+### Option 1: Use the UI Helper(Easiest)
 
 1. **For Testing (Same Person):**
    - Click "Show My Protocol Key" button
