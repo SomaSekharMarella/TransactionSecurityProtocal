@@ -505,3 +505,35 @@ header h1 {
     100% { transform: rotate(360deg); }
 }
 
+/* Notification Toast Animations */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Notification Toast Styles */
+.notification-toast {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.notification-toast:hover {
+    opacity: 0.9;
+}
