@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./ValidatorRegistry.sol";
+import "./VehicleTrustRegistry.sol";
 
 /**
  * @title SecureLedger
@@ -16,6 +17,8 @@ import "./ValidatorRegistry.sol";
  * 6. Session Key Disclosure - Unique session keys per transaction
  * 7. Eavesdropping Attack - ECIES encryption (only receiver can decrypt)
  * 8. Data Integrity Attack - HMAC + Digital signatures
+ * 9. Sybil Attack - Vehicle trust registry with one identity per ECC key
+ * 10. DoS Attack - Rate limiting and 10-second cooldown per vehicle
  * 
  * Transaction Structure:
  * - txId: Unique transaction identifier
@@ -29,6 +32,7 @@ import "./ValidatorRegistry.sol";
  */
 contract SecureLedger {
     ValidatorRegistry public validatorRegistry;
+    VehicleTrustRegistry public vehicleTrustRegistry;
     
     struct Transaction {
         bytes32 txId;
@@ -104,8 +108,9 @@ contract SecureLedger {
         _;
     }
 
-    constructor(address _validatorRegistryAddress) {
+    constructor(address _validatorRegistryAddress, address _vehicleTrustRegistryAddress) {
         validatorRegistry = ValidatorRegistry(_validatorRegistryAddress);
+        vehicleTrustRegistry = VehicleTrustRegistry(_vehicleTrustRegistryAddress);
         blockNumber = 0;
         lastBlockTime = block.timestamp;
     }
@@ -117,8 +122,8 @@ contract SecureLedger {
      * 
      * Attack Protections Applied:
      * - Replay: Nonce + Timestamp validation
-     * - Sybil: Trust score check
-     * - DoS: Rate limiting
+     * - Sybil: Vehicle registration + Trust score check (>= 50)
+     * - DoS: 10-second cooldown + Rate limiting
      * - Revocation: Vehicle revocation check
      * - Session Key Reuse: Session key hash validation
      */
@@ -132,23 +137,56 @@ contract SecureLedger {
         uint256 _timestamp,
         bytes32 _sessionKeyHash
     ) external {
-        // 1. Replay Attack Protection: Check transaction ID uniqueness
+        // 1. Sybil Attack Protection: Check vehicle is registered
+        require(
+            vehicleTrustRegistry.isVehicleRegistered(_senderPublicKey),
+            "Vehicle not registered"
+        );
+        
+        // 2. Sybil Attack Protection: Check vehicle is not revoked
+        require(
+            !vehicleTrustRegistry.isRevoked(_senderPublicKey),
+            "Vehicle is revoked"
+        );
+        
+        // 3. Trust Management: Check minimum trust score (>= 50)
+        require(
+            vehicleTrustRegistry.isTrustworthy(_senderPublicKey),
+            "Vehicle trust score below minimum threshold"
+        );
+        
+        // 4. DoS Attack Protection: Check 10-second cooldown
+        require(
+            vehicleTrustRegistry.canSubmitTransaction(_senderPublicKey),
+            "Cooldown period not passed - wait 10 seconds between transactions"
+        );
+        
+        // 5. DoS Attack Protection: Check rate limit (10 tx per minute)
+        require(
+            vehicleTrustRegistry.checkRateLimit(_senderPublicKey),
+            "Rate limit exceeded - too many transactions"
+        );
+        
+        // 6. Replay Attack Protection: Check transaction ID uniqueness
         require(!processedTxIds[_txId], "Transaction already processed");
         
-        // 2. Replay Attack Protection: Check nonce for both ECC public key AND Ethereum address
+        // 7. Replay Attack Protection: Check nonce for both ECC public key AND Ethereum address
         require(_nonce > nonceRegistry[_senderPublicKey], "Invalid nonce - ECC public key nonce must be greater");
         require(_nonce > addressNonceRegistry[msg.sender], "Invalid nonce - Ethereum address nonce must be greater");
         
-        // 3. Replay Attack Protection: Check timestamp freshness
+        // 8. Replay Attack Protection: Check timestamp freshness
         require(
             _timestamp >= block.timestamp - TIMESTAMP_TOLERANCE &&
             _timestamp <= block.timestamp + TIMESTAMP_TOLERANCE,
             "Timestamp out of tolerance"
         );
         
-        // 4. Session Key Reuse Protection: Check session key uniqueness (forward secrecy)
+        // 9. Session Key Reuse Protection: Check session key uniqueness (forward secrecy)
         require(!usedSessionKeys[_sessionKeyHash], "Session key already used");
         require(_sessionKeyHash != lastSessionKey[_senderPublicKey], "Session key reuse detected");
+        
+        // Record transaction for rate limiting (updates cooldown and counter)
+        vehicleTrustRegistry.recordTransaction(_senderPublicKey);
         
         // Store session key
         usedSessionKeys[_sessionKeyHash] = true;
@@ -183,7 +221,7 @@ contract SecureLedger {
      * Attack Protections Applied:
      * - Impersonation: Signature verification (off-chain)
      * - Data Integrity: HMAC verification (off-chain)
-     * - Trust Management: Trust score updates
+     * - Trust Management: Trust score updates (reward valid, penalize invalid)
      */
     function validateTransaction(bytes32 _txId, bool _isValid, string memory _reason) 
         external 
@@ -199,7 +237,14 @@ contract SecureLedger {
             // Update nonce after successful validation
             nonceRegistry[senderPublicKey] = transactions[_txId].nonce;
             addressNonceRegistry[msg.sender] = transactions[_txId].nonce;
+            
+            // Trust Management: Reward vehicle for valid transaction (+1 trust score)
+            vehicleTrustRegistry.rewardVehicle(senderPublicKey);
         } else {
+            // Trust Management: Penalize vehicle for invalid transaction (-10 trust score)
+            // Reasons: "Replay attack", "Tampered data", "Invalid signature", etc.
+            vehicleTrustRegistry.penalizeVehicle(senderPublicKey, _reason);
+            
             // Decrease trust score of validator if applicable
             address validatorAddress = validatorRegistry.getValidatorByPublicKey(senderPublicKey);
             if (validatorAddress != address(0)) {

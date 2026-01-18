@@ -26,13 +26,29 @@ async function main() {
     console.log("✅ ValidatorRegistry deployed to:", validatorRegistryAddress);
     console.log("\n");
 
-    // Deploy SecureLedger
+    // Deploy VehicleTrustRegistry
+    console.log("📝 Deploying VehicleTrustRegistry...");
+    const VehicleTrustRegistry = await hre.ethers.getContractFactory("VehicleTrustRegistry");
+    const vehicleTrustRegistry = await VehicleTrustRegistry.deploy();
+    await vehicleTrustRegistry.waitForDeployment();
+    const vehicleTrustRegistryAddress = await vehicleTrustRegistry.getAddress();
+    console.log("✅ VehicleTrustRegistry deployed to:", vehicleTrustRegistryAddress);
+    console.log("\n");
+
+    // Deploy SecureLedger (with both registry addresses)
     console.log("📝 Deploying SecureLedger...");
     const SecureLedger = await hre.ethers.getContractFactory("SecureLedger");
-    const secureLedger = await SecureLedger.deploy(validatorRegistryAddress);
+    const secureLedger = await SecureLedger.deploy(validatorRegistryAddress, vehicleTrustRegistryAddress);
     await secureLedger.waitForDeployment();
     const secureLedgerAddress = await secureLedger.getAddress();
     console.log("✅ SecureLedger deployed to:", secureLedgerAddress);
+    console.log("\n");
+
+    // Link VehicleTrustRegistry with SecureLedger
+    console.log("🔗 Linking VehicleTrustRegistry with SecureLedger...");
+    const linkTx = await vehicleTrustRegistry.setSecureLedgerAddress(secureLedgerAddress);
+    await linkTx.wait();
+    console.log("✅ VehicleTrustRegistry linked with SecureLedger");
     console.log("\n");
 
     // Register validators
@@ -63,6 +79,7 @@ async function main() {
     console.log("📊 DEPLOYMENT SUMMARY");
     console.log("=".repeat(60));
     console.log("ValidatorRegistry:", validatorRegistryAddress);
+    console.log("VehicleTrustRegistry:", vehicleTrustRegistryAddress);
     console.log("SecureLedger:", secureLedgerAddress);
     console.log("\nValidators registered:", validatorKeys.length);
     console.log("\nValidator Keys (for testing):");
@@ -76,6 +93,7 @@ async function main() {
     console.log("\n✅ Deployment complete!");
     console.log("\n💡 Save these addresses for frontend configuration:");
     console.log(`   VALIDATOR_REGISTRY_ADDRESS="${validatorRegistryAddress}"`);
+    console.log(`   VEHICLE_TRUST_REGISTRY_ADDRESS="${vehicleTrustRegistryAddress}"`);
     console.log(`   SECURE_LEDGER_ADDRESS="${secureLedgerAddress}"`);
 }
 

@@ -32,14 +32,19 @@ contract VehicleTrustRegistry {
     string[] public vehicleList;
     
     address public owner;
+    
+    // Trust Score Configuration (as per requirements)
     uint256 public constant INITIAL_TRUST_SCORE = 100;
-    uint256 public constant TRUST_SCORE_INCREMENT = 5; // Reward for good behavior
-    uint256 public constant TRUST_SCORE_DECREMENT = 20; // Penalty for bad behavior
-    uint256 public constant MIN_TRUST_SCORE_THRESHOLD = 50; // Minimum for authentication
+    uint256 public constant TRUST_SCORE_INCREMENT = 1; // +1 for valid transaction
+    uint256 public constant TRUST_SCORE_DECREMENT = 10; // -10 for tampered/replayed/too quick
+    uint256 public constant MIN_TRUST_SCORE_THRESHOLD = 50; // Minimum score to transact
     uint256 public constant REVOCATION_THRESHOLD = 0; // Trust score for revocation
     
-    // Rate limiting for DoS protection
-    mapping(string => uint256) public lastTransactionTime; // publicKeyHex => timestamp
+    // DoS Protection: 10-second cooldown per vehicle
+    mapping(string => uint256) public lastTransactionTime; // publicKeyHex => lastTxTimestamp
+    uint256 public constant TX_COOLDOWN_PERIOD = 10 seconds; // 10-second cooldown between transactions
+    
+    // Additional rate limiting for spam protection
     mapping(string => uint256) public transactionCount; // publicKeyHex => count in window
     uint256 public constant RATE_LIMIT_WINDOW = 60 seconds; // 1 minute window
     uint256 public constant MAX_TRANSACTIONS_PER_WINDOW = 10; // Max 10 tx per minute
@@ -54,9 +59,27 @@ contract VehicleTrustRegistry {
         _;
     }
     
+    // Address of SecureLedger contract (can call reward/penalize functions)
+    address public secureLedgerAddress;
+    
+    modifier onlySecureLedger() {
+        require(msg.sender == secureLedgerAddress, "Only SecureLedger can call this");
+        _;
+    }
+
     modifier onlyValidator() {
         // In production, check against ValidatorRegistry
         _;
+    }
+
+    /**
+     * @dev Set SecureLedger address (can only be set once by owner)
+     * This allows SecureLedger to call rewardVehicle and penalizeVehicle
+     */
+    function setSecureLedgerAddress(address _secureLedgerAddress) external onlyOwner {
+        require(secureLedgerAddress == address(0), "SecureLedger address already set");
+        require(_secureLedgerAddress != address(0), "Invalid address");
+        secureLedgerAddress = _secureLedgerAddress;
     }
 
     constructor() {
@@ -130,9 +153,11 @@ contract VehicleTrustRegistry {
     }
 
     /**
-     * @dev Increase trust score for successful transaction
+     * @dev Increase trust score for successful/valid transaction
+     * Rule: If transaction is valid ➝ trustScore += 1
+     * Called by SecureLedger after successful transaction validation
      */
-    function rewardVehicle(string memory publicKeyHex) external onlyOwner {
+    function rewardVehicle(string memory publicKeyHex) external onlySecureLedger {
         require(vehicles[publicKeyHex].registrationTime != 0, "Vehicle not registered");
         require(!vehicles[publicKeyHex].isRevoked, "Vehicle is revoked");
         
@@ -140,28 +165,34 @@ contract VehicleTrustRegistry {
         vehicles[publicKeyHex].successfulTransactions++;
         vehicles[publicKeyHex].lastActivityTime = block.timestamp;
         
-        emit TrustScoreUpdated(publicKeyHex, vehicles[publicKeyHex].trustScore, "Successful transaction");
+        // Update last transaction time for cooldown
+        lastTransactionTime[publicKeyHex] = block.timestamp;
+        
+        emit TrustScoreUpdated(publicKeyHex, vehicles[publicKeyHex].trustScore, "Valid transaction");
     }
 
     /**
      * @dev Decrease trust score for suspicious behavior
-     * @param reason Reason for trust score decrease
+     * Rule: If transaction is tampered, replayed, or submitted too quickly ➝ trustScore -= 10
+     * Called by SecureLedger when detecting malicious behavior
+     * @param reason Reason for trust score decrease (e.g., "Replay attack", "Tampered data", "Rate limit exceeded")
      */
-    function penalizeVehicle(string memory publicKeyHex, string memory reason) external onlyOwner {
+    function penalizeVehicle(string memory publicKeyHex, string memory reason) external onlySecureLedger {
         require(vehicles[publicKeyHex].registrationTime != 0, "Vehicle not registered");
         
         vehicles[publicKeyHex].suspiciousActivities++;
         vehicles[publicKeyHex].failedTransactions++;
         
+        // Apply penalty: -10 trust score
         if (vehicles[publicKeyHex].trustScore >= TRUST_SCORE_DECREMENT) {
             vehicles[publicKeyHex].trustScore -= TRUST_SCORE_DECREMENT;
         } else {
             vehicles[publicKeyHex].trustScore = 0;
         }
         
-        // Auto-revoke if trust score drops to revocation threshold
-        if (vehicles[publicKeyHex].trustScore <= REVOCATION_THRESHOLD && !vehicles[publicKeyHex].isRevoked) {
-            revokeVehicle(publicKeyHex, "Trust score below threshold");
+        // Auto-revoke if trust score drops below minimum threshold
+        if (vehicles[publicKeyHex].trustScore < MIN_TRUST_SCORE_THRESHOLD && !vehicles[publicKeyHex].isRevoked) {
+            revokeVehicle(publicKeyHex, "Trust score below minimum threshold");
         }
         
         emit TrustScoreUpdated(publicKeyHex, vehicles[publicKeyHex].trustScore, reason);
@@ -184,20 +215,60 @@ contract VehicleTrustRegistry {
     }
 
     /**
+     * @dev Check if vehicle is registered
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return bool True if vehicle is registered
+     */
+    function isVehicleRegistered(string memory publicKeyHex) external view returns (bool) {
+        return vehicles[publicKeyHex].registrationTime != 0;
+    }
+
+    /**
      * @dev Check if vehicle is trustworthy (above threshold)
+     * Requirements: Registered, not revoked, trust score >= 50
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return bool True if vehicle meets all requirements
      */
     function isTrustworthy(string memory publicKeyHex) external view returns (bool) {
         Vehicle memory v = vehicles[publicKeyHex];
         
         if (v.registrationTime == 0) return false; // Not registered
         if (v.isRevoked) return false; // Revoked
-        if (v.trustScore < MIN_TRUST_SCORE_THRESHOLD) return false; // Below threshold
+        if (v.trustScore < MIN_TRUST_SCORE_THRESHOLD) return false; // Below minimum threshold (50)
         
         return true;
     }
 
     /**
-     * @dev Check rate limit for DoS protection
+     * @dev Get trust score of a vehicle
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return uint256 Trust score (0 if not registered)
+     */
+    function getTrustScore(string memory publicKeyHex) external view returns (uint256) {
+        return vehicles[publicKeyHex].trustScore;
+    }
+
+    /**
+     * @dev Check if vehicle can submit transaction (DoS protection)
+     * Enforces 10-second cooldown between transactions per vehicle
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return bool True if vehicle can submit transaction (cooldown passed)
+     */
+    function canSubmitTransaction(string memory publicKeyHex) external view returns (bool) {
+        uint256 lastTxTime = lastTransactionTime[publicKeyHex];
+        
+        // First transaction or cooldown period has passed
+        if (lastTxTime == 0 || block.timestamp >= lastTxTime + TX_COOLDOWN_PERIOD) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * @dev Check rate limit for additional spam protection (10 tx per minute)
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return bool True if under rate limit
      */
     function checkRateLimit(string memory publicKeyHex) external view returns (bool) {
         uint256 lastTxTime = lastTransactionTime[publicKeyHex];
@@ -213,19 +284,42 @@ contract VehicleTrustRegistry {
     }
 
     /**
-     * @dev Record transaction for rate limiting
+     * @dev Record transaction for rate limiting (called by SecureLedger)
+     * Updates both cooldown timestamp and rate limit counter
      */
-    function recordTransaction(string memory publicKeyHex) external onlyOwner {
+    function recordTransaction(string memory publicKeyHex) external onlySecureLedger {
         uint256 lastTxTime = lastTransactionTime[publicKeyHex];
         
-        // Reset if window expired
+        // Update rate limit counter (reset if window expired)
         if (block.timestamp > lastTxTime + RATE_LIMIT_WINDOW) {
             transactionCount[publicKeyHex] = 1;
         } else {
             transactionCount[publicKeyHex]++;
         }
         
+        // Update last transaction time (for 10-second cooldown)
         lastTransactionTime[publicKeyHex] = block.timestamp;
+        vehicles[publicKeyHex].lastActivityTime = block.timestamp;
+    }
+
+    /**
+     * @dev Get remaining cooldown time for a vehicle
+     * @param publicKeyHex ECC public key of the vehicle
+     * @return uint256 Remaining cooldown time in seconds (0 if cooldown passed)
+     */
+    function getRemainingCooldown(string memory publicKeyHex) external view returns (uint256) {
+        uint256 lastTxTime = lastTransactionTime[publicKeyHex];
+        
+        if (lastTxTime == 0) {
+            return 0; // No previous transaction
+        }
+        
+        uint256 elapsed = block.timestamp - lastTxTime;
+        if (elapsed >= TX_COOLDOWN_PERIOD) {
+            return 0; // Cooldown passed
+        }
+        
+        return TX_COOLDOWN_PERIOD - elapsed;
     }
 
     /**
@@ -276,4 +370,3 @@ contract VehicleTrustRegistry {
         return revokedVehicles[publicKeyHex] || vehicles[publicKeyHex].isRevoked;
     }
 }
-
